@@ -1,11 +1,12 @@
 import threading
-
+from backend.features import * 
 # To run ERYX
 def starteryx():
         # Code for process 1
         print("Process 1 is running.")
         from main import start
         start()
+        
 
 # To run hotword
 def listenHotword():
@@ -25,5 +26,4 @@ if __name__ == '__main__':
 
     p1.join()
     p2.join()
-
     print("System stop")

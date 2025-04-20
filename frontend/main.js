@@ -1,4 +1,5 @@
 $(document).ready(function () {
+    // eel.greetMe()(); 
     $("#MicBtn").click(function () {
         console.log("🎤 Mic button clicked");
         activateVoiceInput();
@@ -45,4 +46,52 @@ $(document).ready(function () {
     }
 
     document.addEventListener('keyup', doc_keyUp, false);
+
+    function PlayAssistant(message) {
+
+        if (message != "") {
+
+            $("#Snake").attr("hidden", true);
+            $("#SiriWave").attr("hidden", false);
+            eel.allCommands(message);
+            $("#chatbox").val("")
+            $("#MicBtn").attr('hidden', false);
+            $("#SendBtn").attr('hidden', true);
+
+        }
+
+    }
+
+    function ShowHideButton(message) {
+        if (message.length == 0) {
+            $("#MicBtn").attr('hidden', false);
+            $("#SendBtn").attr('hidden', true);
+        }
+        else {
+            $("#MicBtn").attr('hidden', true);
+            $("#SendBtn").attr('hidden', false);
+        }
+    }
+    $("#chatbox").keyup(function () {
+
+        let message = $("#chatbox").val();
+        ShowHideButton(message)
+    
+    });
+    $("#SendBtn").click(function () {
+    
+        let message = $("#chatbox").val()
+        PlayAssistant(message)
+    
+    });
+ 
+    jQuery("#chatbox").keypress(function (e) {
+        var key = e.which || e.keyCode;
+        if (key === 13) {
+            let message = jQuery("#chatbox").val();
+            PlayAssistant(message);
+            jQuery("#chatbox").val('');
+        }
+    });
+    
 });

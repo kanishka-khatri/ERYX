@@ -1,7 +1,8 @@
 import os
-import re
+import random
 import sqlite3
 import struct
+import subprocess
 import threading
 import time
 import traceback
@@ -11,15 +12,25 @@ import eel
 import pvporcupine
 import pyaudio
 import pyautogui as autogui
+import pyperclip
+import requests
+import speech_recognition as sr
 from backend.command import speak
 from backend.config import ASSISTANT_NAME
 import pywhatkit as kit
+import pywhatkit
+import wikipedia
+import psutil
+import pyttsx3
+import pygetwindow as gw
+import json
 
-from backend.helper import extract_yt_term
+
+from backend.helper import extract_yt_term, remove_words
 
 conn = sqlite3.connect("eryx.db")
 cursor = conn.cursor()
-
+engine = pyttsx3.init()
 @eel.expose
 def playAssistantSound():
     """ Play assistant startup sound """
@@ -33,6 +44,16 @@ def opencommand(query):
 
     app_name = query.strip()
     print(f"Received command: {app_name}")
+
+    if app_name in ["alarm", "clock"]:
+        try:
+            speak("Opening Clock")
+            os.system("start ms-clock:")
+            print("Clock app launched.")
+        except Exception as e:
+            print("Error launching clock:", e)
+            speak("Sorry, I couldn't open the clock.")
+        return  # Important to stop further execution
 
     # Create a new SQLite connection inside the function
     conn = sqlite3.connect("eryx.db")
@@ -59,6 +80,7 @@ def opencommand(query):
                     # Special case for YouTube
                     if "youtube" in app_name:
                         speak("Opening YouTube")
+                       
                         webbrowser.open("https://www.youtube.com")
                     else:
                         speak("Opening " + query)
@@ -73,8 +95,42 @@ def opencommand(query):
             speak("Something went wrong")
         finally:
             conn.close()  # Ensure the connection is closed properly
+            
 
+def close_window_with_title(query):
+    found = False
+    for window in gw.getAllTitles():
+        if query.lower() in window.lower() and window.strip() != "":
+            print(f"Found matching window: {window}")
+            win = gw.getWindowsWithTitle(window)[0]
+            win.close()
+            found = True
+            print(f"Closed window: {window}")
+            engine.say(f"Closed {query}")
+            engine.runAndWait()
+            break
+    if not found:
+        print(f"No open window found for: {query}")
+        engine.say(f"No open window found for {query}")
+        engine.runAndWait()
 
+def closecommand(query):
+    name = query.replace("close", "").strip().lower()
+    print(f"Looking for windows with: {name}")
+
+    windows = gw.getAllTitles()
+    for w in windows:
+        print(f"Found window: {w}")  # 🔍 Print all open window titles
+
+    found = False
+    for window in gw.getWindowsWithTitle(name):
+        print(f"Closing window: {window.title}")
+        window.close()
+        found = True
+        
+
+    if not found:
+        print(f"No open window found for: {name}")
 
 def PlayYoutube(query):
     search_term = extract_yt_term(query)
@@ -93,7 +149,7 @@ def hotword():
         def start(self):
             try:
                 print("Initializing Hotword Detector...")
-                access_key = "ZMROLjuNfJXo62Phn3A8o36X8nN5Xnna2lXb5mJ7+xvSIQ4/5dtxRg=="  # Replace with your actual access key
+                access_key = "l1dEfraxGosyk1c6rCVuKJIKPbteE/xApZyUpeme0cVAeajR8WnsZA=="  # Replace with your actual access key
 
                 # Load Porcupine wake word detection
                 self.porcupine = pvporcupine.create(
@@ -172,3 +228,372 @@ def hotword():
     except Exception as e:
         with open("error_log.txt", "w") as f:
             f.write(traceback.format_exc())  # Log startup errors
+
+
+# Whatsapp Message Sending
+def findContact(query):
+    import sqlite3
+
+    # Remove unnecessary words from the query
+    words_to_remove = [ASSISTANT_NAME, 'make', 'a', 'to', 'phone', 'call', 'send', 'message', 'wahtsapp', 'video']
+    query = remove_words(query, words_to_remove)
+
+    try:
+        query = query.strip().lower()
+
+        # Use a fresh SQLite connection to avoid threading issues
+        conn = sqlite3.connect('eryx.db')
+        cursor = conn.cursor()
+
+        # Search for contact using case-insensitive query
+        cursor.execute("SELECT mobile_no FROM contacts WHERE LOWER(name) LIKE ? OR LOWER(name) LIKE ?", ('%' + query + '%', query + '%'))
+        results = cursor.fetchall()
+
+        conn.close()  # Close the DB connection properly
+
+        if results:
+            mobile_number_str = str(results[0][0])
+            if not mobile_number_str.startswith('+91'):
+                mobile_number_str = '+91' + mobile_number_str
+
+            return mobile_number_str, query
+        else:
+            speak('not exist in contacts')
+            return 0, 0
+
+    except Exception as e:
+        speak('not exist in contacts')
+        print("Database error:", e)
+        return 0, 0
+
+
+
+def whatsApp(mobile_no, message, flag, name):
+    import urllib.parse
+    if mobile_no is None or name is None:
+        print("Invalid contact details. Aborting WhatsApp action.")
+        return
+
+    if flag == 'message':
+        target_tab = 13
+        eryx_message = f"Message sent successfully to {name}"
+
+    elif flag == 'call':
+        target_tab = 7
+        message = ''
+        eryx_message = f"Calling {name}"
+
+    elif flag == 'video call':  # video call
+        target_tab = 8
+        message = ''
+        eryx_message = f"Starting video call with {name}"
+
+    # Encode the message for URL
+    encoded_message = urllib.parse.quote(message)
+
+    # Construct the WhatsApp URL
+    whatsapp_url = f"whatsapp://send?phone={mobile_no}&text={encoded_message}"
+
+    try:
+        # ✅ Step 1: Launch WhatsApp Desktop (Microsoft Store version)
+        # try:
+        #     subprocess.run(["explorer", "shell:AppsFolder\\5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App"], check=True)
+        # except subprocess.CalledProcessError as e:
+        #     print("Failed to open WhatsApp:", e)
+        # time.sleep(5)  # Give time for WhatsApp to launch
+
+        # Step 2: Open WhatsApp chat via registered handler (more reliable)
+        webbrowser.open(whatsapp_url)
+
+        time.sleep(1)  # Allow UI to load the chat
+
+        # ✅ Step 3: GUI Automation for call tabs (if needed)
+        autogui.hotkey('ctrl', 'f')  # Focus input
+        for _ in range(1, target_tab):
+            autogui.hotkey('tab')
+        autogui.hotkey('enter')
+
+        speak(eryx_message)
+
+    except Exception as e:
+        print(f"WhatsApp launch error: {e}")
+        traceback.print_exc()
+        speak("Couldn't complete the WhatsApp action.")
+
+from datetime import datetime
+from backend.command import speak
+
+def greetMe():
+    hour = int(datetime.now().hour)
+    if 0 <= hour < 12:
+        speak("Good morning! I am Eryx, your desktop assistant.")
+    elif 12 <= hour < 18:
+        speak("Good afternoon! I am Eryx, your desktop assistant.")
+    else:
+        speak("Good evening! I am Eryx, your desktop assistant.")
+
+def searchGoogle(query):
+    if "google" in query:
+        import wikipedia as googleScrap
+        query = query.replace("eryx","")
+        query = query.replace("google search","")
+        query = query.replace("google","")
+        speak("This is what I found on google")
+
+        try:
+            pywhatkit.search(query)
+            result = googleScrap.summary(query,1)
+            speak(result)
+
+        except:
+            speak("No speakable output available")
+
+# def searchWikipedia(query):
+#     if "wikipedia" in query:
+#         speak("Searching from wikipedia....")
+#         query = query.replace("wikipedia","")
+#         query = query.replace("search wikipedia","")
+#         query = query.replace("eryx","")
+#         results = wikipedia.summary(query,sentences = 2)
+#         speak("According to wikipedia..")
+#         print(results)
+#         speak(results)
+import wikipedia
+import webbrowser
+
+def searchWikipedia(query):
+    if "wikipedia" in query:
+        speak("Searching from Wikipedia...")
+        query = query.replace("wikipedia", "")
+        query = query.replace("search wikipedia", "")
+        query = query.replace("eryx", "")
+        query = query.strip()
+
+        try:
+            results = wikipedia.summary(query, sentences=2)
+            page = wikipedia.page(query)
+            speak("According to Wikipedia...")
+            # Open the specific Wikipedia page
+            webbrowser.open(page.url)
+            print(results)
+            speak(results)
+            
+            
+
+        except wikipedia.exceptions.DisambiguationError as e:
+            speak("There are multiple results. Please be more specific.")
+            print("DisambiguationError:", e)
+        except wikipedia.exceptions.PageError:
+            speak("Sorry, I couldn't find anything matching that.")
+            print("PageError: No matching page found.")
+
+def open_clock():
+    try:
+        os.system("start ms-clock:")
+        print("Clock app launched.")
+    except Exception as e:
+        print("Error launching clock:", e)
+
+# def playSpotifyMoodPlaylist():
+#     try:
+#         # Start Spotify
+#         subprocess.Popen("spotify")  # Make sure 'spotify' is in system PATH
+
+#         speak("Launching your playlist to help you relax.")
+#         time.sleep(5)  # Wait for Spotify to open
+
+#         # Open the playlist URI
+#         playlist_uri = "https://open.spotify.com/playlist/0kComKjmca3ZT8cugeBWm3?si=31f857c4c1164a9e"
+#         pyperclip.copy(playlist_uri)
+
+#         autogui.hotkey("ctrl", "l")  # Focus on search bar
+#         # time.sleep(1)
+#         autogui.hotkey("ctrl", "v")  # Paste URI
+#         # time.sleep(1)
+#         autogui.press("enter")       # Open the playlist
+#         # time.sleep(4)
+
+#         # Play the playlist
+#         autogui.press("tab", presses=4, interval=0.3)  # Navigate to play button
+#         autogui.press("enter")
+#         time.sleep(2)
+
+#     except Exception as e:
+#         print(f"Error opening Spotify: {e}")
+#         speak("Sorry, I had trouble playing your playlist.")
+
+
+
+def playSpotifyMoodPlaylist():
+    try:
+        subprocess.Popen("spotify")  # Launch Spotify
+        speak("Playing your favourite playlist to help you relax,Enjoy!")
+        time.sleep(8)  # Let Spotify launch
+
+        # Open the playlist in default browser (should redirect to app)
+        webbrowser.open("https://open.spotify.com/playlist/0kComKjmca3ZT8cugeBWm3")
+        time.sleep(6)
+
+        # Enable shuffle (ctrl + s is the shortcut)
+        autogui.hotkey("ctrl", "s")
+        time.sleep(1)
+
+        # Scroll down randomly to reach deeper songs (optional)
+        for _ in range(random.randint(10, 20)):
+            autogui.press("down")
+            time.sleep(0.1)
+
+        # Random click within the playlist song area
+        # Adjust these x, y values for your screen to stay on the song column
+        x = random.randint(200, 500)  # X-range within the left half of playlist (song titles)
+        y = random.randint(400, 900)  # Y-range covering the playlist song rows
+
+        # Move to the random song and click
+        autogui.click(x, y)
+        time.sleep(1)
+
+        # Just to make sure, press Enter again to play the song
+        autogui.press("enter")
+        time.sleep(1)
+
+        # speak("Playing a random song from your playlist.")
+
+    except Exception as e:
+        print(f"Error: {e}")
+        speak("Something went wrong while playing music.")
+
+def open_calculator():
+    """ Open the calculator application. """
+    try:
+        os.system('start calc')  # This will open the default calculator on Windows
+        speak("Opening the calculator now.")
+    except Exception as e:
+        print(f"Error opening calculator: {e}")
+        speak("Sorry, I couldn't open the calculator.")
+
+# def latestnews():
+#     api_dict = {"business" : "https://newsapi.org/v2/top-headlines?country=in&category=business&apiKey=11fe423d162d4d5b9b5294cb6e499501",
+#             "entertainment" : "https://newsapi.org/v2/top-headlines?country=in&category=entertainment&apiKey=11fe423d162d4d5b9b5294cb6e499501",
+#             "health" : "https://newsapi.org/v2/top-headlines?country=in&category=health&apiKey=11fe423d162d4d5b9b5294cb6e499501",
+#             "science" :"https://newsapi.org/v2/top-headlines?country=in&category=science&apiKey=11fe423d162d4d5b9b5294cb6e499501",
+#             "sports" :"https://newsapi.org/v2/top-headlines?country=in&category=sports&apiKey=11fe423d162d4d5b9b5294cb6e499501",
+#             "technology" :"https://newsapi.org/v2/top-headlines?country=in&category=technology&apiKey=11fe423d162d4d5b9b5294cb6e499501"
+# }
+
+#     content = None
+#     url = None
+#     speak("Which field news do you want, [business] , [health] , [technology], [sports] , [entertainment] , [science]")
+#     field = input("Type field news that you want: ")
+#     for key ,value in api_dict.items():
+#         if key.lower() in field.lower():
+#             url = value
+#             print(url)
+#             print("url was found")
+#             break
+#         else:
+#             url = True
+#     if url is True:
+#         print("url not found")
+
+#     news = requests.get(url).text
+#     news = json.loads(news)
+#     speak("Here is the first news.")
+
+#     arts = news["articles"]
+#     for articles in arts :
+#         article = articles["title"]
+#         print(article)
+#         speak(article)
+#         news_url = articles["url"]
+#         print(f"for more info visit: {news_url}")
+
+#         a = input("[press 1 to cont] and [press 2 to stop]")
+#         if str(a) == "1":
+#             pass
+#         elif str(a) == "2":
+#             break
+        
+#     speak("thats all")
+def takecommand(prompt=""):
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        if prompt:
+            speak(prompt)
+        print("Adjusting for ambient noise... Please wait.")
+        r.adjust_for_ambient_noise(source, duration=1)
+        print("Listening...")
+        try:
+            audio = r.listen(source, timeout=6, phrase_time_limit=7)
+            print("Recognizing...")
+            query = r.recognize_google(audio, language='en-in')
+            print(f"User said: {query}")
+            return query.lower()
+        except sr.WaitTimeoutError:
+            print("Listening timed out.")
+            return ""
+        except sr.UnknownValueError:
+            print("Speech unclear.")
+            return ""
+        except sr.RequestError:
+            print("Speech recognition service unavailable.")
+            return ""
+        except Exception as e:
+            print(f"Error: {e}")
+            return ""
+
+def latestnews():
+    api_dict = {
+        "business": "https://newsapi.org/v2/top-headlines?country=in&category=business&apiKey=11fe423d162d4d5b9b5294cb6e499501",
+        "entertainment": "https://newsapi.org/v2/top-headlines?country=in&category=entertainment&apiKey=11fe423d162d4d5b9b5294cb6e499501",
+        "health": "https://newsapi.org/v2/top-headlines?country=in&category=health&apiKey=11fe423d162d4d5b9b5294cb6e499501",
+        "science": "https://newsapi.org/v2/top-headlines?country=in&category=science&apiKey=11fe423d162d4d5b9b5294cb6e499501",
+        "sports": "https://newsapi.org/v2/top-headlines?country=in&category=sports&apiKey=11fe423d162d4d5b9b5294cb6e499501",
+        "technology": "https://newsapi.org/v2/top-headlines?country=in&category=technology&apiKey=11fe423d162d4d5b9b5294cb6e499501"
+    }
+
+    url = None
+    # category_list = ", ".join(api_dict.keys())
+
+    # Ask 3 times for category
+    for attempt in range(3):
+        field = takecommand(f"Which category of news do you want?")
+        if not field:
+            speak("Sorry, I didn't hear anything.")
+            continue
+
+        for key in api_dict:
+            if key in field:
+                url = api_dict[key]
+                print(f"Matched category: {key}")
+                break
+
+        if url:
+            break
+        else:
+            speak("I didn't recognize that category. Please try again.")
+
+    if not url:
+        speak("Still couldn't understand the category. Please try again later.")
+        return
+
+    try:
+        response = requests.get(url)
+        news = response.json()
+        articles = news.get("articles", [])
+        if not articles:
+            speak("Sorry, no news found.")
+            return
+
+        speak("Here are the latest headlines.")
+        for i, article in enumerate(articles[:5]):
+            title = article.get("title", "No Title")
+            link = article.get("url", "")
+            print(f"{i+1}. {title}")
+            print(f"More info: {link}")
+            speak(f"News {i+1}: {title}")
+            time.sleep(1)
+
+        speak("That’s all for now.")
+    except Exception as e:
+        print(f"Error fetching news: {e}")
+        speak("There was a problem getting the news.")
