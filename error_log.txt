@@ -1,5 +1,5 @@
 Traceback (most recent call last):
-  File "d:\Project-6th sem\ERYX\backend\features.py", line 223, in hotword
+  File "d:\Project-6th sem\ERYX\backend\features.py", line 226, in hotword
     command = input("Type 'exit' to stop: ").strip().lower()
               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 EOFError

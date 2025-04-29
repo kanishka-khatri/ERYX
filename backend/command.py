@@ -1,20 +1,12 @@
 import time
 from bs4 import BeautifulSoup
 import pyttsx3
-import requests
 import speech_recognition as sr
 import eel
-import wikipedia
 from backend.features import *
 import datetime
 import requests
-from ctypes import cast, POINTER
-from comtypes import CLSCTX_ALL
-from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 import keyboard
-
-
-
 
 def speak(text):
     """ Speak the given text using text-to-speech. """
@@ -24,7 +16,6 @@ def speak(text):
     engine.setProperty('rate', 130)
     
     eel.DisplaySpokenText(text)
-    eel.DisplayOnSiriScreen(text)  # 👈 Add this line before speaking
     engine.say(text)
     engine.runAndWait()
 
@@ -93,7 +84,7 @@ def allCommands(message=1):
         if "volume up" in query:
             try:
                 # Simulate pressing volume up key 3 times
-                for _ in range(3):
+                for _ in range(2):
                     keyboard.send("volume up")
                 speak("Volume increased")
             except Exception as e:
@@ -103,7 +94,7 @@ def allCommands(message=1):
         elif "volume down" in query:
             try:
                 # Simulate pressing volume down key 3 times
-                for _ in range(3):
+                for _ in range(2):
                     keyboard.send("volume down")
                 speak("Volume decreased")
             except Exception as e:
@@ -172,12 +163,6 @@ def allCommands(message=1):
                     return
 
                 whatsApp(contact_no, message_text, message_type, name)
-        elif "call" in query:
-            from backend.features import findContact, whatsApp
-            message_type = 'call'
-            contact_no, name = findContact(query)
-            if contact_no != 0:
-                whatsApp(contact_no, "", message_type, name)
 
         elif "video call" in query:
             from backend.features import findContact, whatsApp
@@ -185,6 +170,15 @@ def allCommands(message=1):
             contact_no, name = findContact(query)
             if contact_no != 0:
                 whatsApp(contact_no, "", message_type, name)
+                
+        elif "call" in query:
+            from backend.features import findContact, whatsApp
+            message_type = 'call'
+            contact_no, name = findContact(query)
+            if contact_no != 0:
+                whatsApp(contact_no, "", message_type, name)
+
+        
         
         elif "calculator" in query:
             # Open the calculator when the command contains 'calculator'

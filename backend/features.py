@@ -12,7 +12,6 @@ import eel
 import pvporcupine
 import pyaudio
 import pyautogui as autogui
-import pyperclip
 import requests
 import speech_recognition as sr
 from backend.command import speak
@@ -20,10 +19,9 @@ from backend.config import ASSISTANT_NAME
 import pywhatkit as kit
 import pywhatkit
 import wikipedia
-import psutil
 import pyttsx3
 import pygetwindow as gw
-import json
+import urllib
 
 
 from backend.helper import extract_yt_term, remove_words
@@ -119,9 +117,15 @@ def closecommand(query):
     print(f"Looking for windows with: {name}")
 
     windows = gw.getAllTitles()
+    if "youtube" in name or "gmail" in name or "google" in name:
+        speak(f"Closing {name} tab")
+        autogui.hotkey("ctrl", "w")  # Close current tab
+        print(f"Sent Ctrl+W to close {name}")
+        return
+    
     for w in windows:
         print(f"Found window: {w}")  # 🔍 Print all open window titles
-
+    
     found = False
     for window in gw.getWindowsWithTitle(name):
         print(f"Closing window: {window.title}")
@@ -266,59 +270,50 @@ def findContact(query):
         print("Database error:", e)
         return 0, 0
 
-
-
 def whatsApp(mobile_no, message, flag, name):
-    import urllib.parse
     if mobile_no is None or name is None:
         print("Invalid contact details. Aborting WhatsApp action.")
         return
 
-    if flag == 'message':
-        target_tab = 13
-        eryx_message = f"Message sent successfully to {name}"
-
-    elif flag == 'call':
-        target_tab = 7
-        message = ''
-        eryx_message = f"Calling {name}"
-
-    elif flag == 'video call':  # video call
-        target_tab = 8
-        message = ''
-        eryx_message = f"Starting video call with {name}"
-
-    # Encode the message for URL
-    encoded_message = urllib.parse.quote(message)
-
-    # Construct the WhatsApp URL
-    whatsapp_url = f"whatsapp://send?phone={mobile_no}&text={encoded_message}"
-
     try:
-        # ✅ Step 1: Launch WhatsApp Desktop (Microsoft Store version)
-        # try:
-        #     subprocess.run(["explorer", "shell:AppsFolder\\5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App"], check=True)
-        # except subprocess.CalledProcessError as e:
-        #     print("Failed to open WhatsApp:", e)
-        # time.sleep(5)  # Give time for WhatsApp to launch
+        # Encode the message
+        encoded_message = urllib.parse.quote(message)
 
-        # Step 2: Open WhatsApp chat via registered handler (more reliable)
+        # Open WhatsApp chat
+        whatsapp_url = f"whatsapp://send?phone={mobile_no}&text={encoded_message}"
         webbrowser.open(whatsapp_url)
 
-        time.sleep(1)  # Allow UI to load the chat
+        time.sleep(5)  # Wait for WhatsApp chat to load
 
-        # ✅ Step 3: GUI Automation for call tabs (if needed)
-        autogui.hotkey('ctrl', 'f')  # Focus input
-        for _ in range(1, target_tab):
-            autogui.hotkey('tab')
-        autogui.hotkey('enter')
+        if flag == 'message':
+            autogui.press('enter')  # Press Enter to send the message
+            speak(f"Message sent successfully to {name}")
 
-        speak(eryx_message)
+        elif flag == 'call':
+            # Locate the Call button on screen
+            call_location = autogui.locateCenterOnScreen("D:/Project-6th sem/ERYX/frontend/assets/call_button.png", confidence=0.8)
+            if call_location:
+                autogui.moveTo(call_location, duration=0.5)
+                autogui.click()
+                speak(f"Calling {name}")
+            else:
+                speak("Couldn't find the Call button.")
+
+        elif flag == 'video call':
+            # Locate the Video Call button on screen
+            video_call_location = autogui.locateCenterOnScreen("D:/Project-6th sem/ERYX/frontend/assets/video_call_button.png", confidence=0.8)
+            if video_call_location:
+                autogui.moveTo(video_call_location, duration=0.5)
+                autogui.click()
+                speak(f"Starting video call with {name}")
+            else:
+                speak("Couldn't find the Video Call button.")
 
     except Exception as e:
         print(f"WhatsApp launch error: {e}")
         traceback.print_exc()
         speak("Couldn't complete the WhatsApp action.")
+
 
 from datetime import datetime
 from backend.command import speak
@@ -348,16 +343,6 @@ def searchGoogle(query):
         except:
             speak("No speakable output available")
 
-# def searchWikipedia(query):
-#     if "wikipedia" in query:
-#         speak("Searching from wikipedia....")
-#         query = query.replace("wikipedia","")
-#         query = query.replace("search wikipedia","")
-#         query = query.replace("eryx","")
-#         results = wikipedia.summary(query,sentences = 2)
-#         speak("According to wikipedia..")
-#         print(results)
-#         speak(results)
 import wikipedia
 import webbrowser
 
@@ -394,45 +379,16 @@ def open_clock():
     except Exception as e:
         print("Error launching clock:", e)
 
-# def playSpotifyMoodPlaylist():
-#     try:
-#         # Start Spotify
-#         subprocess.Popen("spotify")  # Make sure 'spotify' is in system PATH
-
-#         speak("Launching your playlist to help you relax.")
-#         time.sleep(5)  # Wait for Spotify to open
-
-#         # Open the playlist URI
-#         playlist_uri = "https://open.spotify.com/playlist/0kComKjmca3ZT8cugeBWm3?si=31f857c4c1164a9e"
-#         pyperclip.copy(playlist_uri)
-
-#         autogui.hotkey("ctrl", "l")  # Focus on search bar
-#         # time.sleep(1)
-#         autogui.hotkey("ctrl", "v")  # Paste URI
-#         # time.sleep(1)
-#         autogui.press("enter")       # Open the playlist
-#         # time.sleep(4)
-
-#         # Play the playlist
-#         autogui.press("tab", presses=4, interval=0.3)  # Navigate to play button
-#         autogui.press("enter")
-#         time.sleep(2)
-
-#     except Exception as e:
-#         print(f"Error opening Spotify: {e}")
-#         speak("Sorry, I had trouble playing your playlist.")
-
-
 
 def playSpotifyMoodPlaylist():
     try:
         subprocess.Popen("spotify")  # Launch Spotify
         speak("Playing your favourite playlist to help you relax,Enjoy!")
-        time.sleep(8)  # Let Spotify launch
+        time.sleep(2)  # Let Spotify launch
 
         # Open the playlist in default browser (should redirect to app)
         webbrowser.open("https://open.spotify.com/playlist/0kComKjmca3ZT8cugeBWm3")
-        time.sleep(6)
+        time.sleep(2)
 
         # Enable shuffle (ctrl + s is the shortcut)
         autogui.hotkey("ctrl", "s")
@@ -446,7 +402,7 @@ def playSpotifyMoodPlaylist():
         # Random click within the playlist song area
         # Adjust these x, y values for your screen to stay on the song column
         x = random.randint(200, 500)  # X-range within the left half of playlist (song titles)
-        y = random.randint(400, 900)  # Y-range covering the playlist song rows
+        y = random.randint(400, 600)  # Y-range covering the playlist song rows
 
         # Move to the random song and click
         autogui.click(x, y)
@@ -462,6 +418,10 @@ def playSpotifyMoodPlaylist():
         print(f"Error: {e}")
         speak("Something went wrong while playing music.")
 
+
+
+
+
 def open_calculator():
     """ Open the calculator application. """
     try:
@@ -471,49 +431,7 @@ def open_calculator():
         print(f"Error opening calculator: {e}")
         speak("Sorry, I couldn't open the calculator.")
 
-# def latestnews():
-#     api_dict = {"business" : "https://newsapi.org/v2/top-headlines?country=in&category=business&apiKey=11fe423d162d4d5b9b5294cb6e499501",
-#             "entertainment" : "https://newsapi.org/v2/top-headlines?country=in&category=entertainment&apiKey=11fe423d162d4d5b9b5294cb6e499501",
-#             "health" : "https://newsapi.org/v2/top-headlines?country=in&category=health&apiKey=11fe423d162d4d5b9b5294cb6e499501",
-#             "science" :"https://newsapi.org/v2/top-headlines?country=in&category=science&apiKey=11fe423d162d4d5b9b5294cb6e499501",
-#             "sports" :"https://newsapi.org/v2/top-headlines?country=in&category=sports&apiKey=11fe423d162d4d5b9b5294cb6e499501",
-#             "technology" :"https://newsapi.org/v2/top-headlines?country=in&category=technology&apiKey=11fe423d162d4d5b9b5294cb6e499501"
-# }
 
-#     content = None
-#     url = None
-#     speak("Which field news do you want, [business] , [health] , [technology], [sports] , [entertainment] , [science]")
-#     field = input("Type field news that you want: ")
-#     for key ,value in api_dict.items():
-#         if key.lower() in field.lower():
-#             url = value
-#             print(url)
-#             print("url was found")
-#             break
-#         else:
-#             url = True
-#     if url is True:
-#         print("url not found")
-
-#     news = requests.get(url).text
-#     news = json.loads(news)
-#     speak("Here is the first news.")
-
-#     arts = news["articles"]
-#     for articles in arts :
-#         article = articles["title"]
-#         print(article)
-#         speak(article)
-#         news_url = articles["url"]
-#         print(f"for more info visit: {news_url}")
-
-#         a = input("[press 1 to cont] and [press 2 to stop]")
-#         if str(a) == "1":
-#             pass
-#         elif str(a) == "2":
-#             break
-        
-#     speak("thats all")
 def takecommand(prompt=""):
     r = sr.Recognizer()
     with sr.Microphone() as source:

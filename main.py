@@ -9,7 +9,7 @@ def start():
     eel.init("frontend")
 
     playAssistantSound()
-    # greetMe()
+    greetMe()
 
     
     os.system(r'"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"" --app="http://localhost:5500/index.html"')
