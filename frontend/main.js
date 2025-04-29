@@ -48,19 +48,38 @@ $(document).ready(function () {
     document.addEventListener('keyup', doc_keyUp, false);
 
     function PlayAssistant(message) {
-
-        if (message != "") {
-
-            $("#Snake").attr("hidden", true);
-            $("#SiriWave").attr("hidden", false);
-            eel.allCommands(message);
-            $("#chatbox").val("")
-            $("#MicBtn").attr('hidden', false);
+        if (message.trim() !== "") {
+            console.log("📨 Typed message: " + message);
+    
+            // Simulate voice input flow for typed messages
+            $("#TextInput, .text").hide();
+            $("#listening-container").fadeIn();
+            $("#spoken-text").text("Listening...");
+    
+            eel.allCommands(message)().then((recognizedText) => {
+                console.log(`📝 Recognized Text (typed): ${recognizedText}`);
+                $("#spoken-text").text(recognizedText).css("color", "yellow");
+    
+                setTimeout(() => {
+                    console.log("⌛ Transitioning to response phase...");
+                    $("#listening-container").fadeOut();
+                    $(".status-text").text("Assistant is responding...");
+    
+                    eel.speakResponse(recognizedText)().then(() => {
+                        console.log("🔊 Finished speaking typed response.");
+                        $("#speaking-container").fadeOut();
+                        $("#TextInput, .text").fadeIn();
+                        $("#snake-image").fadeIn();
+                    });
+                }, 1000);
+            });
+    
+            $("#chatbox").val(""); // Clear chat input
             $("#SendBtn").attr('hidden', true);
-
+            $("#MicBtn").attr('hidden', false);
         }
-
     }
+    
 
     function ShowHideButton(message) {
         if (message.length == 0) {

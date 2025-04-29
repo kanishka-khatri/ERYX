@@ -28,4 +28,17 @@ function AssistantFinished() {
     $("#spoken-text").text("");  // ✅ Clear spoken text
 }
 
+eel.expose(ReturnToHomeScreen);
+function ReturnToHomeScreen() {
+    console.log("🏠 Returning to home screen UI...");
+
+    $("#listening-container").fadeOut();
+    $("#speaking-container").fadeOut();
+    $("#SiriWave").hide();
+    $("#spoken-text").text("");
+
+    $("#TextInput, .text").fadeIn();
+    $("#snake-image").fadeIn();
+}
+
 });

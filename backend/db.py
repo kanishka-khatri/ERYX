@@ -1,5 +1,6 @@
 import sqlite3
 import csv
+import bcrypt
 conn = sqlite3.connect("eryx.db")
 cursor = conn.cursor()
 
@@ -70,5 +71,27 @@ cursor = conn.cursor()
 
 # # Close the connection
 # conn.close()
+# cursor.execute('''
+# CREATE TABLE IF NOT EXISTS users (
+#     id INTEGER PRIMARY KEY AUTOINCREMENT,
+#     username TEXT NOT NULL UNIQUE,
+#     password_hash TEXT NOT NULL
+# )
+# ''')
+# conn.commit()
 
-# print("Sakshi has been added to the contacts.")
+def register_user(username, password):
+    password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    try:
+        cursor.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, password_hash))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+
+def authenticate_user(username, password):
+    cursor.execute("SELECT password_hash FROM users WHERE username = ?", (username,))
+    result = cursor.fetchone()
+    if result and bcrypt.checkpw(password.encode('utf-8'), result[0]):
+        return True
+    return False

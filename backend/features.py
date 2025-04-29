@@ -16,8 +16,6 @@ import requests
 import speech_recognition as sr
 from backend.command import speak
 from backend.config import ASSISTANT_NAME
-import pywhatkit as kit
-import pywhatkit
 import wikipedia
 import pyttsx3
 import pygetwindow as gw
@@ -117,12 +115,6 @@ def closecommand(query):
     print(f"Looking for windows with: {name}")
 
     windows = gw.getAllTitles()
-    if "youtube" in name or "gmail" in name or "google" in name:
-        speak(f"Closing {name} tab")
-        autogui.hotkey("ctrl", "w")  # Close current tab
-        print(f"Sent Ctrl+W to close {name}")
-        return
-    
     for w in windows:
         print(f"Found window: {w}")  # 🔍 Print all open window titles
     
@@ -137,6 +129,7 @@ def closecommand(query):
         print(f"No open window found for: {name}")
 
 def PlayYoutube(query):
+    import pywhatkit as kit
     search_term = extract_yt_term(query)
     speak("Playing "+search_term+" on YouTube")
     kit.playonyt(search_term)
@@ -328,6 +321,7 @@ def greetMe():
         speak("Good evening! I am Eryx, your desktop assistant.")
 
 def searchGoogle(query):
+    import pywhatkit
     if "google" in query:
         import wikipedia as googleScrap
         query = query.replace("eryx","")
@@ -383,7 +377,7 @@ def open_clock():
 def playSpotifyMoodPlaylist():
     try:
         subprocess.Popen("spotify")  # Launch Spotify
-        speak("Playing your favourite playlist to help you relax,Enjoy!")
+        speak("Playing your favourite playlist to help you relax, Enjoy!")
         time.sleep(2)  # Let Spotify launch
 
         # Open the playlist in default browser (should redirect to app)

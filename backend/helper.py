@@ -1,6 +1,6 @@
 import re
 
-from backend.config import ASSISTANT_NAME
+from backend.config import *
 
 
 def extract_yt_term(command):
@@ -20,10 +20,3 @@ def remove_words(input_string, words_to_remove):
     result_string = ' '.join(filtered_words)
 
     return result_string
-
-#Example usage
-input_string = "make a phone call to jheel"
-words_to_remove = [ASSISTANT_NAME, 'make', 'a', 'to', 'phone', 'call', 'send', 'message', 'wahtsapp', '']
-
-result = remove_words(input_string, words_to_remove)
-print(result)

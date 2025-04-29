@@ -44,6 +44,7 @@ def takecommand():
                 print(f"User said: {query}")
             else:
                 print("Sorry, I didn't catch that.")
+                eel.ReturnToHomeScreen()
                 query = ""  # Return an empty string if nothing is recognized
             eel.DisplaySpokenText(query)
             time.sleep(2)
@@ -61,6 +62,7 @@ def takecommand():
         except Exception as e:
             print(f"Error: {e}")
             return ""  # Return empty string for any other error
+
 
 @eel.expose
 def allCommands(message=1):
